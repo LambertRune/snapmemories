@@ -7,8 +7,8 @@
     <title>SnapMemories Downloader | Phiosk</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📸</text></svg>">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/streamsaver@2.0.6/StreamSaver.min.js"></script>
     <style>
         :root {
             --sage: #8fb584;
@@ -803,6 +803,12 @@
     // ========== PURE CLIENT-SIDE SNAPCHAT MEMORIES DOWNLOADER ==========
     // All processing happens in the browser - no server communication
     
+    // Configure StreamSaver to NOT use external mitm.html
+    // Use native WritableStream when available (modern browsers)
+    if (typeof streamSaver !== 'undefined') {
+        streamSaver.mitm = undefined; // Disable external mitm
+    }
+    
     let memories = [];
     let zipFile = null;
     let stats = { total: 0, completed: 0, failed: 0, bytes: 0, startTime: 0 };
@@ -972,6 +978,7 @@
         document.getElementById('progressText').textContent = `${stats.completed + stats.failed} van ${stats.total} verwerkt`;
     }
     
+    // Download a single memory file
     async function downloadMemory(mem) {
         try {
             const headers = {
@@ -1003,18 +1010,18 @@
                 }
             }
             
-            // Use arrayBuffer instead of blob for better memory handling
             const arrayBuffer = await response.arrayBuffer();
             stats.bytes += arrayBuffer.byteLength;
             stats.completed++;
             
-            return { success: true, data: arrayBuffer, mem };
+            return { success: true, data: new Uint8Array(arrayBuffer), mem };
         } catch (e) {
             stats.failed++;
             return { success: false, error: e.message, mem };
         }
     }
     
+    // Streaming ZIP implementation - writes directly to disk
     async function startDownload() {
         const html = document.getElementById('htmlInput').value;
         if (!html.trim()) {
@@ -1048,65 +1055,65 @@
         document.getElementById('pauseBtn').textContent = '⏸️ Pauzeren';
         document.getElementById('pauseBtn').className = 'btn btn-warning';
         
-        // Create ZIP with streaming enabled
-        zipFile = new JSZip();
-        
-        // Download in smaller batches (3) to reduce memory pressure
-        const batchSize = 3;
-        for (let i = 0; i < memories.length && !isStopped; i += batchSize) {
-            await waitWhilePaused();
-            if (isStopped) break;
+        try {
+            // Create writable stream to file using StreamSaver
+            const fileStream = streamSaver.createWriteStream('snapchat_memories.zip');
+            const writer = fileStream.getWriter();
             
-            const batch = memories.slice(i, i + batchSize);
-            const results = await Promise.all(batch.map(downloadMemory));
+            // Create fflate ZIP stream
+            const zipStream = new fflate.Zip((err, chunk, final) => {
+                if (err) {
+                    console.error('ZIP error:', err);
+                    return;
+                }
+                if (chunk) {
+                    writer.write(chunk);
+                }
+                if (final) {
+                    writer.close();
+                }
+            });
             
-            for (const result of results) {
+            // Process files one by one to minimize memory usage
+            for (let i = 0; i < memories.length && !isStopped; i++) {
+                await waitWhilePaused();
+                if (isStopped) break;
+                
+                const mem = memories[i];
+                const result = await downloadMemory(mem);
+                
                 if (result.success) {
-                    // Add as Uint8Array for better memory efficiency
-                    zipFile.file(
-                        `${result.mem.folder}/${result.mem.filename}`, 
-                        new Uint8Array(result.data)
-                    );
-                    // Clear the reference to allow garbage collection
+                    const filePath = `${result.mem.folder}/${result.mem.filename}`;
+                    
+                    // Add file to ZIP stream (no compression for speed/memory)
+                    const file = new fflate.ZipDeflate(filePath, { level: 0 });
+                    zipStream.add(file);
+                    file.push(result.data, true); // true = this chunk is final
+                    
+                    // Clear reference immediately
                     result.data = null;
+                }
+                
+                updateProgress();
+                
+                // Small delay every 10 files to allow garbage collection
+                if (i > 0 && i % 10 === 0) {
+                    await new Promise(r => setTimeout(r, 50));
                 }
             }
             
-            updateProgress();
+            // Finalize the ZIP
+            updateStatus('zipping');
+            document.getElementById('progressText').textContent = 'ZIP afronden...';
+            zipStream.end();
             
-            // Force garbage collection opportunity every 30 files
-            if (i > 0 && i % 30 === 0) {
-                await new Promise(r => setTimeout(r, 100));
-            }
-        }
-        
-        // Hide control buttons
-        document.getElementById('controlBtns').style.display = 'none';
-        
-        // Generate ZIP with streaming and no compression to save memory
-        updateStatus('zipping');
-        document.getElementById('progressText').textContent = 'ZIP bestand genereren...';
-        
-        try {
-            const content = await zipFile.generateAsync({ 
-                type: 'blob',
-                compression: 'STORE',  // No compression = less memory usage
-                streamFiles: true      // Stream files to reduce memory
-            }, (meta) => {
-                document.getElementById('progressText').textContent = `ZIP: ${meta.percent.toFixed(0)}%`;
-            });
-            
-            // Clear ZIP object to free memory before saving
-            zipFile = null;
-            
-            // Store for re-download
-            lastGeneratedZip = content;
-            
-            // Save file
-            saveAs(content, 'snapchat_memories.zip');
+            // Hide control buttons
+            document.getElementById('controlBtns').style.display = 'none';
             
             updateStatus('done');
             document.getElementById('resultBox').classList.add('active');
+            document.getElementById('progressText').textContent = 'Download voltooid!';
+            
         } catch (e) {
             updateStatus('error');
             alert('Fout bij maken ZIP: ' + e.message);
@@ -1116,14 +1123,9 @@
         document.getElementById('startBtn').disabled = false;
     }
     
-    let lastGeneratedZip = null;  // Store the generated ZIP for re-download
-    
+    // Re-download is not supported with streaming (file already saved)
     async function downloadZip() {
-        if (lastGeneratedZip) {
-            saveAs(lastGeneratedZip, 'snapchat_memories.zip');
-        } else {
-            alert('Geen ZIP beschikbaar om te downloaden');
-        }
+        alert('Het ZIP bestand is al gedownload. Start opnieuw om een nieuwe ZIP te maken.');
     }
     
     // Modal functions
