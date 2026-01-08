@@ -1003,11 +1003,12 @@
                 }
             }
             
-            const blob = await response.blob();
-            stats.bytes += blob.size;
+            // Use arrayBuffer instead of blob for better memory handling
+            const arrayBuffer = await response.arrayBuffer();
+            stats.bytes += arrayBuffer.byteLength;
             stats.completed++;
             
-            return { success: true, blob, mem };
+            return { success: true, data: arrayBuffer, mem };
         } catch (e) {
             stats.failed++;
             return { success: false, error: e.message, mem };
@@ -1047,11 +1048,11 @@
         document.getElementById('pauseBtn').textContent = '⏸️ Pauzeren';
         document.getElementById('pauseBtn').className = 'btn btn-warning';
         
-        // Create ZIP
+        // Create ZIP with streaming enabled
         zipFile = new JSZip();
         
-        // Download in batches of 5 (browser friendly)
-        const batchSize = 5;
+        // Download in smaller batches (3) to reduce memory pressure
+        const batchSize = 3;
         for (let i = 0; i < memories.length && !isStopped; i += batchSize) {
             await waitWhilePaused();
             if (isStopped) break;
@@ -1061,28 +1062,45 @@
             
             for (const result of results) {
                 if (result.success) {
-                    zipFile.file(`${result.mem.folder}/${result.mem.filename}`, result.blob);
+                    // Add as Uint8Array for better memory efficiency
+                    zipFile.file(
+                        `${result.mem.folder}/${result.mem.filename}`, 
+                        new Uint8Array(result.data)
+                    );
+                    // Clear the reference to allow garbage collection
+                    result.data = null;
                 }
             }
             
             updateProgress();
+            
+            // Force garbage collection opportunity every 30 files
+            if (i > 0 && i % 30 === 0) {
+                await new Promise(r => setTimeout(r, 100));
+            }
         }
         
         // Hide control buttons
         document.getElementById('controlBtns').style.display = 'none';
         
-        // Generate ZIP
+        // Generate ZIP with streaming and no compression to save memory
         updateStatus('zipping');
         document.getElementById('progressText').textContent = 'ZIP bestand genereren...';
         
         try {
             const content = await zipFile.generateAsync({ 
                 type: 'blob',
-                compression: 'DEFLATE',
-                compressionOptions: { level: 6 }
+                compression: 'STORE',  // No compression = less memory usage
+                streamFiles: true      // Stream files to reduce memory
             }, (meta) => {
                 document.getElementById('progressText').textContent = `ZIP: ${meta.percent.toFixed(0)}%`;
             });
+            
+            // Clear ZIP object to free memory before saving
+            zipFile = null;
+            
+            // Store for re-download
+            lastGeneratedZip = content;
             
             // Save file
             saveAs(content, 'snapchat_memories.zip');
@@ -1092,15 +1110,19 @@
         } catch (e) {
             updateStatus('error');
             alert('Fout bij maken ZIP: ' + e.message);
+            console.error('ZIP generation error:', e);
         }
         
         document.getElementById('startBtn').disabled = false;
     }
     
+    let lastGeneratedZip = null;  // Store the generated ZIP for re-download
+    
     async function downloadZip() {
-        if (zipFile) {
-            const content = await zipFile.generateAsync({ type: 'blob' });
-            saveAs(content, 'snapchat_memories.zip');
+        if (lastGeneratedZip) {
+            saveAs(lastGeneratedZip, 'snapchat_memories.zip');
+        } else {
+            alert('Geen ZIP beschikbaar om te downloaden');
         }
     }
     
