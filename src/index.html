@@ -122,17 +122,105 @@
         }
         
         textarea {
+            display: none;
+        }
+        
+        .dropzone {
             width: 100%;
-            height: 180px;
-            padding: 14px;
-            border: 2px solid var(--cream-dark);
-            border-radius: 10px;
-            font-family: 'Monaco', 'Consolas', monospace;
-            font-size: 12px;
+            min-height: 160px;
+            border: 3px dashed var(--cream-dark);
+            border-radius: 12px;
             background: var(--cream);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 30px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .dropzone:hover, .dropzone.dragover {
+            border-color: var(--sage);
+            background: var(--sage-light);
+        }
+        
+        .dropzone.has-file {
+            border-color: var(--sage);
+            background: linear-gradient(135deg, var(--sage-light), var(--cream));
+        }
+        
+        .dropzone-icon {
+            font-size: 48px;
+            line-height: 1;
+        }
+        
+        .dropzone-text {
+            font-size: 14px;
+            color: var(--text-light);
+            text-align: center;
+        }
+        
+        .dropzone-text strong {
+            color: var(--sage-dark);
+        }
+        
+        .dropzone-filename {
+            font-family: 'Monaco', monospace;
+            font-size: 13px;
+            color: var(--sage-dark);
+            background: white;
+            padding: 8px 16px;
+            border-radius: 100px;
+            margin-top: 8px;
+        }
+        
+        .how-to-card {
+            background: linear-gradient(135deg, #e8f5e9, var(--cream));
+            border: 1px solid var(--sage-light);
+        }
+        
+        .how-to-steps {
+            display: grid;
+            gap: 16px;
+            margin-top: 16px;
+        }
+        
+        .how-to-step {
+            display: flex;
+            gap: 14px;
+            align-items: flex-start;
+        }
+        
+        .how-to-num {
+            width: 26px;
+            height: 26px;
+            background: var(--sage);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        
+        .how-to-content h4 {
+            font-size: 14px;
+            margin-bottom: 4px;
             color: var(--text);
-            resize: vertical;
-            transition: all 0.2s;
+        }
+        
+        .how-to-content p {
+            font-size: 13px;
+            color: var(--text-light);
+            margin: 0;
+        }
+        
+        .how-to-content a {
+            color: var(--sage-dark);
         }
         
         textarea:focus {
@@ -530,22 +618,64 @@
             <p class="subtitle">Download je Snapchat herinneringen veilig. Alles gebeurt in jouw browser - wij zien of bewaren niets.</p>
         </header>
         
+        <!-- How to get your file -->
+        <div class="card how-to-card">
+            <div class="card-title">
+                <span class="step-num">?</span>
+                Hoe krijg je jouw memories_history.html?
+            </div>
+            
+            <div class="how-to-steps">
+                <div class="how-to-step">
+                    <span class="how-to-num">1</span>
+                    <div class="how-to-content">
+                        <h4>Vraag je data aan bij Snapchat</h4>
+                        <p>Ga naar <a href="https://accounts.snapchat.com/accounts/downloadmydata" target="_blank">accounts.snapchat.com/accounts/downloadmydata</a> en log in.</p>
+                    </div>
+                </div>
+                <div class="how-to-step">
+                    <span class="how-to-num">2</span>
+                    <div class="how-to-content">
+                        <h4>Selecteer "Export My Data"</h4>
+                        <p>Klik op de knop en wacht tot je een e-mail ontvangt (dit kan 1-2 dagen duren).</p>
+                    </div>
+                </div>
+                <div class="how-to-step">
+                    <span class="how-to-num">3</span>
+                    <div class="how-to-content">
+                        <h4>Download en pak uit</h4>
+                        <p>Download het ZIP-bestand uit de e-mail en pak het uit op je computer.</p>
+                    </div>
+                </div>
+                <div class="how-to-step">
+                    <span class="how-to-num">4</span>
+                    <div class="how-to-content">
+                        <h4>Zoek memories_history.html</h4>
+                        <p>Open de map <code>html</code> → zoek het bestand <code>memories_history.html</code></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <div class="card">
             <div class="card-title">
                 <span class="step-num">1</span>
-                Plak je memories_history.html
+                Sleep je bestand hierheen
             </div>
             
-            <textarea id="htmlInput" placeholder="Open memories_history.html in een teksteditor, selecteer alles (Ctrl+A), kopieer (Ctrl+C) en plak hier..."></textarea>
+            <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
+                <span class="dropzone-icon">📁</span>
+                <p class="dropzone-text">
+                    <strong>Klik of sleep</strong> je memories_history.html hier
+                </p>
+            </div>
+            <input type="file" id="fileInput" accept=".html" style="display:none" onchange="loadFile(event)">
+            <textarea id="htmlInput" style="display:none"></textarea>
             
             <div class="btn-row">
                 <button class="btn btn-primary" id="startBtn" onclick="startDownload()">
                     🚀 Start Download
                 </button>
-                <button class="btn btn-outline" onclick="document.getElementById('fileInput').click()">
-                    📁 Selecteer bestand
-                </button>
-                <input type="file" id="fileInput" accept=".html" style="display:none" onchange="loadFile(event)">
             </div>
             
             <div class="disclaimer-box">
@@ -683,13 +813,59 @@
     function loadFile(e) {
         const file = e.target.files[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                document.getElementById('htmlInput').value = ev.target.result;
-            };
-            reader.readAsText(file);
+            handleFile(file);
         }
     }
+    
+    function handleFile(file) {
+        const dropzone = document.getElementById('dropzone');
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            document.getElementById('htmlInput').value = ev.target.result;
+            dropzone.classList.add('has-file');
+            dropzone.innerHTML = `
+                <span class="dropzone-icon">✅</span>
+                <p class="dropzone-text"><strong>Bestand geladen!</strong></p>
+                <span class="dropzone-filename">${file.name}</span>
+            `;
+        };
+        reader.readAsText(file);
+    }
+    
+    // Drag & Drop handlers
+    document.addEventListener('DOMContentLoaded', function() {
+        const dropzone = document.getElementById('dropzone');
+        
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, preventDefaults, false);
+            document.body.addEventListener(eventName, preventDefaults, false);
+        });
+        
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropzone.addEventListener(eventName, () => dropzone.classList.add('dragover'), false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, () => dropzone.classList.remove('dragover'), false);
+        });
+        
+        dropzone.addEventListener('drop', (e) => {
+            const file = e.dataTransfer.files[0];
+            if (file && file.name.endsWith('.html')) {
+                handleFile(file);
+            } else {
+                alert('Selecteer een .html bestand');
+            }
+        }, false);
+        
+        // Initialize button state
+        document.getElementById('startBtn').disabled = true;
+    });
     
     function parseHTML(html) {
         const mems = [];
@@ -943,11 +1119,6 @@
         const accepted = document.getElementById('acceptTerms').checked;
         document.getElementById('startBtn').disabled = !accepted;
     }
-    
-    // Initialize button state
-    document.addEventListener('DOMContentLoaded', function() {
-        document.getElementById('startBtn').disabled = true;
-    });
     </script>
     
     <!-- Terms of Service Modal -->
