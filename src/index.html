@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Download je Snapchat Memories veilig en privé. 100% client-side - geen data wordt opgeslagen op onze servers.">
+    <title>SnapMemories Downloader | Phiosk</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📸</text></svg>">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+        :root {
+            --sage: #8fb584;
+            --sage-dark: #6d9462;
+            --sage-light: #c5e0bc;
+            --cream: #fdfbf7;
+            --cream-dark: #f5f2eb;
+            --text: #1a2e1a;
+            --text-light: #5a6c5a;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--cream);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+        
+        body::before {
+            content: '';
+            position: fixed;
+            top: -20%; right: -10%;
+            width: 60%; height: 60%;
+            background: radial-gradient(circle, rgba(100,149,237,0.12) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        
+        body::after {
+            content: '';
+            position: fixed;
+            bottom: -20%; left: -10%;
+            width: 50%; height: 50%;
+            background: radial-gradient(circle, rgba(143,181,132,0.15) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 24px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .badge {
+            display: inline-block;
+            background: var(--sage-light);
+            color: var(--sage-dark);
+            padding: 6px 16px;
+            border-radius: 100px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 16px;
+        }
+        
+        h1 {
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 2.8rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 12px;
+        }
+        
+        .subtitle {
+            color: var(--text-light);
+            font-size: 1.05rem;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 28px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+            border: 1px solid rgba(0,0,0,0.04);
+        }
+        
+        .card-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .step-num {
+            width: 28px; height: 28px;
+            background: var(--sage);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        
+        textarea {
+            width: 100%;
+            height: 180px;
+            padding: 14px;
+            border: 2px solid var(--cream-dark);
+            border-radius: 10px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 12px;
+            background: var(--cream);
+            color: var(--text);
+            resize: vertical;
+            transition: all 0.2s;
+        }
+        
+        textarea:focus {
+            outline: none;
+            border-color: var(--sage);
+            box-shadow: 0 0 0 3px var(--sage-light);
+        }
+        
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            border-radius: 100px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        
+        .btn-primary {
+            background: var(--sage);
+            color: white;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            background: var(--sage-dark);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(143,181,132,0.35);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .btn-outline {
+            background: transparent;
+            color: var(--text);
+            border: 2px solid var(--cream-dark);
+        }
+        
+        .btn-outline:hover {
+            border-color: var(--sage);
+            color: var(--sage-dark);
+        }
+        
+        .btn-danger {
+            background: #e57373;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c62828;
+        }
+        
+        .btn-warning {
+            background: #ffb74d;
+            color: #333;
+        }
+        
+        .btn-warning:hover {
+            background: #f57c00;
+        }
+        
+        /* Privacy Section */
+        .privacy-box {
+            background: linear-gradient(135deg, var(--sage-light), var(--cream));
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .privacy-box h4 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1rem;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .privacy-list {
+            list-style: none;
+            font-size: 13px;
+            color: var(--text-light);
+        }
+        
+        .privacy-list li {
+            padding: 4px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .privacy-list li::before {
+            content: '✓';
+            color: var(--sage-dark);
+            font-weight: bold;
+        }
+        
+        /* Progress */
+        .progress-section { display: none; }
+        .progress-section.active { display: block; }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin: 20px 0;
+        }
+        
+        .stat-box {
+            text-align: center;
+            padding: 14px 8px;
+            background: var(--cream);
+            border-radius: 10px;
+        }
+        
+        .stat-value {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.6rem;
+            font-weight: 600;
+            color: var(--sage-dark);
+        }
+        
+        .stat-label {
+            font-size: 11px;
+            color: var(--text-light);
+            margin-top: 2px;
+            text-transform: uppercase;
+        }
+        
+        .progress-bar {
+            height: 10px;
+            background: var(--cream-dark);
+            border-radius: 100px;
+            overflow: hidden;
+            margin: 16px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--sage), var(--sage-dark));
+            border-radius: 100px;
+            transition: width 0.3s;
+            width: 0%;
+        }
+        
+        .progress-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            color: var(--text-light);
+        }
+        
+        .speed-row {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin: 20px 0;
+            padding: 16px;
+            background: var(--cream);
+            border-radius: 10px;
+        }
+        
+        .speed-item { text-align: center; }
+        
+        .speed-label {
+            font-size: 10px;
+            color: var(--text-light);
+            text-transform: uppercase;
+            margin-bottom: 2px;
+        }
+        
+        .speed-value {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: var(--sage-dark);
+        }
+        
+        .status-badge {
+            padding: 5px 12px;
+            border-radius: 100px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-left: auto;
+        }
+        
+        .status-idle { background: var(--cream-dark); color: var(--text-light); }
+        .status-parsing { background: #e3f2fd; color: #1976d2; }
+        .status-downloading { background: var(--sage-light); color: var(--sage-dark); }
+        .status-zipping { background: #fff3e0; color: #f57c00; }
+        .status-done { background: var(--sage-light); color: var(--sage-dark); }
+        .status-error { background: #ffebee; color: #c62828; }
+        
+        .result-box {
+            display: none;
+            text-align: center;
+            padding: 28px;
+            background: linear-gradient(135deg, var(--sage-light), var(--cream));
+            border-radius: 14px;
+            margin-top: 20px;
+        }
+        
+        .result-box.active { display: block; }
+        
+        .result-box h3 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.4rem;
+            color: var(--sage-dark);
+            margin-bottom: 10px;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding: 20px;
+            color: var(--text-light);
+            font-size: 13px;
+        }
+        
+        .footer a {
+            color: var(--sage-dark);
+            text-decoration: none;
+        }
+        
+        .gdpr-section {
+            margin-top: 40px;
+            padding: 24px;
+            background: white;
+            border-radius: 16px;
+            border: 1px solid rgba(0,0,0,0.04);
+        }
+        
+        .gdpr-section h3 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.2rem;
+            margin-bottom: 16px;
+        }
+        
+        .gdpr-section p {
+            font-size: 13px;
+            color: var(--text-light);
+            margin-bottom: 12px;
+        }
+        
+        .gdpr-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+        
+        .gdpr-item {
+            padding: 16px;
+            background: var(--cream);
+            border-radius: 10px;
+        }
+        
+        .gdpr-item h4 {
+            font-size: 14px;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .gdpr-item p {
+            font-size: 12px;
+            margin: 0;
+        }
+        
+        @media (max-width: 600px) {
+            h1 { font-size: 2rem; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .speed-row { gap: 20px; }
+            .gdpr-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="badge">🔒 100% Privacy</div>
+            <h1>SnapMemories</h1>
+            <p class="subtitle">Download je Snapchat herinneringen veilig. Alles gebeurt in jouw browser - wij zien of bewaren niets.</p>
+        </header>
+        
+        <div class="card">
+            <div class="card-title">
+                <span class="step-num">1</span>
+                Plak je memories_history.html
+            </div>
+            
+            <textarea id="htmlInput" placeholder="Open memories_history.html in een teksteditor, selecteer alles (Ctrl+A), kopieer (Ctrl+C) en plak hier..."></textarea>
+            
+            <div class="btn-row">
+                <button class="btn btn-primary" id="startBtn" onclick="startDownload()">
+                    🚀 Start Download
+                </button>
+                <button class="btn btn-outline" onclick="document.getElementById('fileInput').click()">
+                    📁 Selecteer bestand
+                </button>
+                <input type="file" id="fileInput" accept=".html" style="display:none" onchange="loadFile(event)">
+            </div>
+            
+            <div class="privacy-box">
+                <h4>🛡️ Jouw Privacy is Gegarandeerd</h4>
+                <ul class="privacy-list">
+                    <li>Alle downloads gebeuren direct in jouw browser</li>
+                    <li>Geen data wordt naar onze servers gestuurd</li>
+                    <li>Wij kunnen je bestanden niet zien of opslaan</li>
+                    <li>De HTML blijft 100% op jouw apparaat</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="card progress-section" id="progressCard">
+            <div class="card-title">
+                <span class="step-num">2</span>
+                Voortgang
+                <span class="status-badge status-idle" id="statusBadge">Gereed</span>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-value" id="totalStat">0</div>
+                    <div class="stat-label">Totaal</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="completedStat">0</div>
+                    <div class="stat-label">Voltooid</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="failedStat">0</div>
+                    <div class="stat-label">Mislukt</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="sizeStat">0</div>
+                    <div class="stat-label">MB</div>
+                </div>
+            </div>
+            
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            
+            <div class="progress-info">
+                <span id="progressText">Wachten...</span>
+                <span id="progressPct">0%</span>
+            </div>
+            
+            <div class="speed-row">
+                <div class="speed-item">
+                    <div class="speed-label">Snelheid</div>
+                    <div class="speed-value" id="speedValue">-- MB/s</div>
+                </div>
+                <div class="speed-item">
+                    <div class="speed-label">Resterende tijd</div>
+                    <div class="speed-value" id="etaValue">--:--</div>
+                </div>
+            </div>
+            
+            <div class="btn-row" id="controlBtns" style="display:none;justify-content:center;margin-top:16px">
+                <button class="btn btn-warning" id="pauseBtn" onclick="togglePause()">
+                    ⏸️ Pauzeren
+                </button>
+                <button class="btn btn-danger" id="stopBtn" onclick="stopDownload()">
+                    ⏹️ Stoppen
+                </button>
+            </div>
+            
+            <div class="result-box" id="resultBox">
+                <h3>✅ Download Voltooid!</h3>
+                <p style="color:var(--text-light);margin-bottom:16px">Je ZIP bestand wordt nu gedownload</p>
+                <button class="btn btn-primary" onclick="downloadZip()">📦 Download Opnieuw</button>
+            </div>
+        </div>
+        
+        <section class="gdpr-section">
+            <h3>🇪🇺 GDPR & Privacy Compliance</h3>
+            <p>Deze tool is ontworpen met privacy als prioriteit. We voldoen volledig aan de Europese GDPR-wetgeving.</p>
+            
+            <div class="gdpr-grid">
+                <div class="gdpr-item">
+                    <h4>🖥️ 100% Client-Side</h4>
+                    <p>Alle verwerking gebeurt lokaal in jouw browser. Er wordt geen data naar servers gestuurd.</p>
+                </div>
+                <div class="gdpr-item">
+                    <h4>🚫 Geen Opslag</h4>
+                    <p>Wij slaan geen bestanden, cookies of persoonlijke gegevens op. Nul data retentie.</p>
+                </div>
+                <div class="gdpr-item">
+                    <h4>🔒 Direct Download</h4>
+                    <p>Downloads gaan rechtstreeks van Snapchat naar jouw computer. Wij zijn slechts een interface.</p>
+                </div>
+                <div class="gdpr-item">
+                    <h4>📍 Geen Tracking</h4>
+                    <p>Geen analytics, geen cookies, geen fingerprinting. Jouw bezoek is volledig anoniem.</p>
+                </div>
+            </div>
+        </section>
+        
+        <footer class="footer">
+            <p>Gemaakt door <a href="https://development.phiosk.be" target="_blank">Phiosk Development</a></p>
+            <p style="margin-top:8px;opacity:0.7;font-size:11px">
+                Niet geaffilieerd met Snapchat Inc. • Open source tool voor persoonlijk gebruik
+            </p>
+        </footer>
+    </div>
+    
+    <script>
+    // ========== PURE CLIENT-SIDE SNAPCHAT MEMORIES DOWNLOADER ==========
+    // All processing happens in the browser - no server communication
+    
+    let memories = [];
+    let zipFile = null;
+    let stats = { total: 0, completed: 0, failed: 0, bytes: 0, startTime: 0 };
+    let isPaused = false;
+    let isStopped = false;
+    let currentBatchIndex = 0;
+    
+    function loadFile(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                document.getElementById('htmlInput').value = ev.target.result;
+            };
+            reader.readAsText(file);
+        }
+    }
+    
+    function parseHTML(html) {
+        const mems = [];
+        const pattern = /downloadMemories\('([^']+)',\s*this,\s*(true|false)\)/g;
+        const rowPattern = /<tr>([\s\S]*?)<\/tr>/g;
+        
+        let match;
+        while ((match = rowPattern.exec(html)) !== null) {
+            const row = match[1];
+            
+            const dateMatch = row.match(/<td>(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} UTC)<\/td>/);
+            const mediaMatch = row.match(/<td>(Video|Image)<\/td>/);
+            const urlMatch = row.match(/downloadMemories\('([^']+)',\s*this,\s*(true|false)\)/);
+            
+            if (dateMatch && mediaMatch && urlMatch) {
+                const date = new Date(dateMatch[1].replace(' UTC', 'Z'));
+                const url = new URL(urlMatch[1]);
+                const sid = url.searchParams.get('sid') || 'unknown';
+                
+                mems.push({
+                    date: date,
+                    media: mediaMatch[1].toLowerCase(),
+                    url: urlMatch[1],
+                    isGet: urlMatch[2] === 'true',
+                    sid: sid.substring(0, 8),
+                    filename: `${date.getFullYear()}${String(date.getMonth()+1).padStart(2,'0')}${String(date.getDate()).padStart(2,'0')}_${String(date.getHours()).padStart(2,'0')}${String(date.getMinutes()).padStart(2,'0')}${String(date.getSeconds()).padStart(2,'0')}_${sid.substring(0,8)}${mediaMatch[1].toLowerCase() === 'video' ? '.mp4' : '.jpg'}`,
+                    folder: `${mediaMatch[1].toLowerCase() === 'video' ? 'videos' : 'images'}/${date.getFullYear()}/${String(date.getMonth()+1).padStart(2,'0')}`
+                });
+            }
+        }
+        
+        return mems;
+    }
+    
+    function updateStatus(status) {
+        const badge = document.getElementById('statusBadge');
+        badge.className = 'status-badge status-' + status;
+        const labels = {
+            idle: 'Gereed',
+            parsing: 'Parsen...',
+            downloading: 'Downloaden',
+            paused: 'Gepauzeerd',
+            zipping: 'ZIP maken',
+            done: 'Voltooid',
+            stopped: 'Gestopt',
+            error: 'Fout'
+        };
+        badge.textContent = labels[status] || status;
+    }
+    
+    function togglePause() {
+        isPaused = !isPaused;
+        const btn = document.getElementById('pauseBtn');
+        if (isPaused) {
+            btn.textContent = '▶️ Hervatten';
+            btn.className = 'btn btn-primary';
+            updateStatus('paused');
+        } else {
+            btn.textContent = '⏸️ Pauzeren';
+            btn.className = 'btn btn-warning';
+            updateStatus('downloading');
+        }
+    }
+    
+    function stopDownload() {
+        if (confirm('Weet je zeker dat je wilt stoppen? Je kunt wel de al gedownloade bestanden als ZIP downloaden.')) {
+            isStopped = true;
+            isPaused = false;
+            updateStatus('stopped');
+            document.getElementById('controlBtns').style.display = 'none';
+            document.getElementById('resultBox').classList.add('active');
+            document.getElementById('startBtn').disabled = false;
+        }
+    }
+    
+    async function waitWhilePaused() {
+        while (isPaused && !isStopped) {
+            await new Promise(r => setTimeout(r, 100));
+        }
+    }
+    
+    function updateProgress() {
+        const pct = stats.total > 0 ? Math.round((stats.completed + stats.failed) / stats.total * 100) : 0;
+        document.getElementById('progressFill').style.width = pct + '%';
+        document.getElementById('progressPct').textContent = pct + '%';
+        document.getElementById('totalStat').textContent = stats.total;
+        document.getElementById('completedStat').textContent = stats.completed;
+        document.getElementById('failedStat').textContent = stats.failed;
+        document.getElementById('sizeStat').textContent = (stats.bytes / 1048576).toFixed(1);
+        
+        const elapsed = (Date.now() - stats.startTime) / 1000;
+        const speed = elapsed > 0 ? stats.bytes / elapsed : 0;
+        document.getElementById('speedValue').textContent = (speed / 1048576).toFixed(2) + ' MB/s';
+        
+        const remaining = stats.total - stats.completed - stats.failed;
+        if (stats.completed > 0) {
+            const avgTime = elapsed / stats.completed;
+            const eta = remaining * avgTime;
+            const mins = Math.floor(eta / 60);
+            const secs = Math.floor(eta % 60);
+            document.getElementById('etaValue').textContent = `${mins}m ${secs}s`;
+        }
+        
+        document.getElementById('progressText').textContent = `${stats.completed + stats.failed} van ${stats.total} verwerkt`;
+    }
+    
+    async function downloadMemory(mem) {
+        try {
+            const headers = {
+                'X-Snap-Route-Tag': 'mem-dmd'
+            };
+            
+            let response;
+            if (mem.isGet) {
+                response = await fetch(mem.url, { headers, mode: 'cors' });
+            } else {
+                const [baseUrl, params] = mem.url.split('?');
+                response = await fetch(baseUrl, {
+                    method: 'POST',
+                    headers: { ...headers, 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: params,
+                    mode: 'cors'
+                });
+            }
+            
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            
+            const contentType = response.headers.get('Content-Type') || '';
+            
+            if (contentType.includes('text')) {
+                const redirectUrl = await response.text();
+                if (redirectUrl.startsWith('http')) {
+                    response = await fetch(redirectUrl, { mode: 'cors' });
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                }
+            }
+            
+            const blob = await response.blob();
+            stats.bytes += blob.size;
+            stats.completed++;
+            
+            return { success: true, blob, mem };
+        } catch (e) {
+            stats.failed++;
+            return { success: false, error: e.message, mem };
+        }
+    }
+    
+    async function startDownload() {
+        const html = document.getElementById('htmlInput').value;
+        if (!html.trim()) {
+            alert('Plak eerst de HTML inhoud!');
+            return;
+        }
+        
+        document.getElementById('startBtn').disabled = true;
+        document.getElementById('progressCard').classList.add('active');
+        updateStatus('parsing');
+        
+        // Parse HTML
+        memories = parseHTML(html);
+        
+        if (memories.length === 0) {
+            alert('Geen herinneringen gevonden in de HTML. Controleer of je het juiste bestand hebt geplakt.');
+            document.getElementById('startBtn').disabled = false;
+            updateStatus('error');
+            return;
+        }
+        
+        // Initialize stats
+        stats = { total: memories.length, completed: 0, failed: 0, bytes: 0, startTime: Date.now() };
+        isPaused = false;
+        isStopped = false;
+        updateProgress();
+        updateStatus('downloading');
+        
+        // Show control buttons
+        document.getElementById('controlBtns').style.display = 'flex';
+        document.getElementById('pauseBtn').textContent = '⏸️ Pauzeren';
+        document.getElementById('pauseBtn').className = 'btn btn-warning';
+        
+        // Create ZIP
+        zipFile = new JSZip();
+        
+        // Download in batches of 5 (browser friendly)
+        const batchSize = 5;
+        for (let i = 0; i < memories.length && !isStopped; i += batchSize) {
+            await waitWhilePaused();
+            if (isStopped) break;
+            
+            const batch = memories.slice(i, i + batchSize);
+            const results = await Promise.all(batch.map(downloadMemory));
+            
+            for (const result of results) {
+                if (result.success) {
+                    zipFile.file(`${result.mem.folder}/${result.mem.filename}`, result.blob);
+                }
+            }
+            
+            updateProgress();
+        }
+        
+        // Hide control buttons
+        document.getElementById('controlBtns').style.display = 'none';
+        
+        // Generate ZIP
+        updateStatus('zipping');
+        document.getElementById('progressText').textContent = 'ZIP bestand genereren...';
+        
+        try {
+            const content = await zipFile.generateAsync({ 
+                type: 'blob',
+                compression: 'DEFLATE',
+                compressionOptions: { level: 6 }
+            }, (meta) => {
+                document.getElementById('progressText').textContent = `ZIP: ${meta.percent.toFixed(0)}%`;
+            });
+            
+            // Save file
+            saveAs(content, 'snapchat_memories.zip');
+            
+            updateStatus('done');
+            document.getElementById('resultBox').classList.add('active');
+        } catch (e) {
+            updateStatus('error');
+            alert('Fout bij maken ZIP: ' + e.message);
+        }
+        
+        document.getElementById('startBtn').disabled = false;
+    }
+    
+    async function downloadZip() {
+        if (zipFile) {
+            const content = await zipFile.generateAsync({ type: 'blob' });
+            saveAs(content, 'snapchat_memories.zip');
+        }
+    }
+    </script>
+</body>
+</html>

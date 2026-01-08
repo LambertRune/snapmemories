@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  # Static web app (Nginx)
+  snapmemories:
+    build: .
+    container_name: snapmemories-app
+    restart: unless-stopped
+    expose:
+      - "80"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - internal
+
+  # Cloudflare Tunnel
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: snapmemories-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - snapmemories
+    networks:
+      - internal
+
+networks:
+  internal:
+    driver: bridge
