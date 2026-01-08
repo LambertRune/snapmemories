@@ -8,7 +8,6 @@
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📸</text></svg>">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/streamsaver@2.0.6/StreamSaver.js"></script>
     <style>
         :root {
             --sage: #8fb584;
@@ -802,15 +801,10 @@
     <script>
     // ========== PURE CLIENT-SIDE SNAPCHAT MEMORIES DOWNLOADER ==========
     // All processing happens in the browser - no server communication
-    
-    // Configure StreamSaver to NOT use external mitm.html
-    // Use native WritableStream when available (modern browsers)
-    if (typeof streamSaver !== 'undefined') {
-        streamSaver.mitm = undefined; // Disable external mitm
-    }
+    // Uses fflate for efficient ZIP generation with chunked processing
     
     let memories = [];
-    let zipFile = null;
+    let zipChunks = [];  // Store ZIP chunks to concatenate later
     let stats = { total: 0, completed: 0, failed: 0, bytes: 0, startTime: 0 };
     let isPaused = false;
     let isStopped = false;
@@ -1021,7 +1015,7 @@
         }
     }
     
-    // Streaming ZIP implementation - writes directly to disk
+    // Chunked ZIP implementation using fflate - collects chunks into blobs periodically
     async function startDownload() {
         const html = document.getElementById('htmlInput').value;
         if (!html.trim()) {
@@ -1047,6 +1041,7 @@
         stats = { total: memories.length, completed: 0, failed: 0, bytes: 0, startTime: Date.now() };
         isPaused = false;
         isStopped = false;
+        zipChunks = [];  // Reset chunks
         updateProgress();
         updateStatus('downloading');
         
@@ -1056,9 +1051,10 @@
         document.getElementById('pauseBtn').className = 'btn btn-warning';
         
         try {
-            // Create writable stream to file using StreamSaver
-            const fileStream = streamSaver.createWriteStream('snapchat_memories.zip');
-            const writer = fileStream.getWriter();
+            // Collect ZIP chunks - will be combined at the end
+            let pendingChunks = [];
+            let pendingSize = 0;
+            const CHUNK_THRESHOLD = 50 * 1024 * 1024; // Save to blob every 50MB
             
             // Create fflate ZIP stream
             const zipStream = new fflate.Zip((err, chunk, final) => {
@@ -1067,10 +1063,16 @@
                     return;
                 }
                 if (chunk) {
-                    writer.write(chunk);
-                }
-                if (final) {
-                    writer.close();
+                    pendingChunks.push(chunk);
+                    pendingSize += chunk.length;
+                    
+                    // If pending chunks are large, save to blob to free memory
+                    if (pendingSize >= CHUNK_THRESHOLD) {
+                        const blob = new Blob(pendingChunks, { type: 'application/octet-stream' });
+                        zipChunks.push(blob);
+                        pendingChunks = [];
+                        pendingSize = 0;
+                    }
                 }
             });
             
@@ -1107,6 +1109,29 @@
             document.getElementById('progressText').textContent = 'ZIP afronden...';
             zipStream.end();
             
+            // Save any remaining pending chunks
+            if (pendingChunks.length > 0) {
+                const blob = new Blob(pendingChunks, { type: 'application/octet-stream' });
+                zipChunks.push(blob);
+                pendingChunks = [];
+            }
+            
+            // Combine all blobs into final ZIP
+            document.getElementById('progressText').textContent = 'ZIP bestand maken...';
+            const finalBlob = new Blob(zipChunks, { type: 'application/zip' });
+            
+            // Create download link
+            const url = URL.createObjectURL(finalBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'snapchat_memories.zip';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            // Cleanup
+            setTimeout(() => URL.revokeObjectURL(url), 10000);
+            
             // Hide control buttons
             document.getElementById('controlBtns').style.display = 'none';
             
@@ -1123,9 +1148,21 @@
         document.getElementById('startBtn').disabled = false;
     }
     
-    // Re-download is not supported with streaming (file already saved)
+    // Re-download from saved blobs
     async function downloadZip() {
-        alert('Het ZIP bestand is al gedownload. Start opnieuw om een nieuwe ZIP te maken.');
+        if (zipChunks.length > 0) {
+            const finalBlob = new Blob(zipChunks, { type: 'application/zip' });
+            const url = URL.createObjectURL(finalBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'snapchat_memories.zip';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 10000);
+        } else {
+            alert('Geen ZIP beschikbaar. Start eerst een nieuwe download.');
+        }
     }
     
     // Modal functions
